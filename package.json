@@ -1,5 +1,5 @@
 {
-  "name": "riscv_mem_generator",
+  "name": "riscv_pipeline_cpu",
   "version": "1.0.0",
   "config": {},
   "dependencies": {},

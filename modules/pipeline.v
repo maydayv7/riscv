@@ -1,7 +1,10 @@
-//////////////// Including Stages ////////////////////////////
+////////////////////////////////////////////////////////////
+// Pipeline Logic
+////////////////////////////////////////////////////////////
+
 `include "IF_ID.v"
 `include "execute.v"
-`include "memory.v"  // FIXED: Include
+`include "memory.v"
 `include "wb.v"
 
 module pipe #(
@@ -14,32 +17,29 @@ module pipe #(
     output [31:0] pc_out,
 
     // IMEM Interface
-    output [31:0] inst_mem_address,    // FIXED: Converted from internal wire to output port
+    output [31:0] inst_mem_address,
     input         inst_mem_is_valid,
     input  [31:0] inst_mem_read_data,
-    output        inst_mem_is_ready,   // FIXED: Converted from internal wire to output port
+    output        inst_mem_is_ready,
 
     // DMEM Interface
-    output [31:0] dmem_read_address,    // FIXED: Converted from internal wire to output port
-    output        dmem_read_ready,      // FIXED: Converted from internal wire to output port
+    output [31:0] dmem_read_address,
+    output        dmem_read_ready,
     input  [31:0] dmem_read_data_temp,
     input         dmem_read_valid,
-    output [31:0] dmem_write_address,   // FIXED: Converted from internal wire to output port
-    output        dmem_write_ready,     // FIXED: Converted from internal wire to output port
-    output [31:0] dmem_write_data,      // FIXED: Converted from internal wire to output port
-    output [ 3:0] dmem_write_byte,      // FIXED: Converted from internal wire to output port
+    output [31:0] dmem_write_address,
+    output        dmem_write_ready,
+    output [31:0] dmem_write_data,
+    output [ 3:0] dmem_write_byte,
     input         dmem_write_valid
 );
 
-  // -- Declaring Wires and Registers -- //
-
-  // Data Memory Wires
+  // DMEM Wires
   wire [31:0] dmem_read_data;
   wire [ 1:0] dmem_read_offset;
   wire        dmem_read_valid_checker;
-  // FIXED: Removed wires that are now ports (dmem_write_ready, dmem_read_ready, dmem_write_address, dmem_read_address, dmem_write_data, dmem_write_byte, inst_mem_is_ready, inst_mem_address)
 
-  // Instruction Fetch/Decode Stage
+  // IF/ID Stage Wires
   reg  [31:0] immediate;
   wire        immediate_sel;
   wire [ 4:0] src1_select;
@@ -72,8 +72,7 @@ module pipe #(
   wire        wb_stall_second;
   wire        wb_stall;
 
-
-  // Execute Stage
+  // EX Stage Wires
   wire [31:0] next_pc;
   wire [31:0] write_address;
   wire        branch_taken;
@@ -81,7 +80,7 @@ module pipe #(
   wire [31:0] alu_operand1;
   wire [31:0] alu_operand2;
 
-  // Write Back
+  // WB Stage Wires
   wire        wb_alu_to_reg;
   wire [31:0] wb_result;
   wire [ 2:0] wb_alu_operation;
@@ -95,21 +94,21 @@ module pipe #(
   wire [ 3:0] wb_write_byte;
   wire [31:0] wb_write_data;
   wire [31:0] wb_read_data;
-  // wire       [31: 0] inst_mem_address; // FIXED: Now a port
 
-  //------------------------------------------------------//
-  assign dmem_write_address = wb_write_address;  // assigning where to write
-  assign dmem_read_address = alu_operand1 + execute_immediate;  // assigning address to read from the data memory
+
+  // Assignments
+  assign dmem_write_address = wb_write_address;  // Address to write to
+  assign dmem_read_address = alu_operand1 + execute_immediate;  // Address to read from
   assign dmem_read_offset = dmem_read_address[1:0];
-  assign dmem_read_ready = mem_to_reg;  // load instruction flag to read from memory
-  assign dmem_write_ready = wb_mem_write;  // flag to write into the memory
-  assign dmem_write_data = wb_write_data;  // assigning data to write
-  assign dmem_write_byte = wb_write_byte;  // flag for writing the data bytes
-  assign dmem_read_data = dmem_read_data_temp;  // data read from the memory
+  assign dmem_read_ready = mem_to_reg;  // Flag to read from memory
+  assign dmem_write_ready = wb_mem_write;  // Flag to write into memory
+  assign dmem_write_data = wb_write_data;  // Data to write
+  assign dmem_write_byte = wb_write_byte;  // Flag for writing the data bytes
+  assign dmem_read_data = dmem_read_data_temp;  // Data read from memory
   assign dmem_read_valid_checker = 1'b1;
-  // -----------------------------------------------------//
 
-  // -- Instantiating IF module -- //
+
+  // Instantiating IF/ID module
   IF_ID IF_ID_stage (
       .clk      (clk),
       .reset    (reset),
@@ -117,24 +116,21 @@ module pipe #(
       .exception(exception),
 
       // IMEM interface
-      .inst_mem_is_valid (inst_mem_is_valid),
+      .inst_mem_is_valid(inst_mem_is_valid),
       .inst_mem_read_data(inst_mem_read_data),
+      .inst_mem_offset(inst_mem_address[1:0]),
 
-      // FIXED: Previously pipe.* signals
       .stall_read_i (stall_read),
       .inst_fetch_pc(inst_fetch_pc),
       .instruction_i(instruction),
 
-      // WB-stage signals
+      // WB Stage signals
       .wb_stall       (wb_stall),
       .wb_alu_to_reg  (wb_alu_to_reg),
       .wb_mem_to_reg  (wb_mem_to_reg),
       .wb_dest_reg_sel(wb_dest_reg_sel),
       .wb_result      (wb_result),
       .wb_read_data   (wb_read_data),
-
-      // Instruction memory address offset
-      .inst_mem_offset(inst_mem_address[1:0]),
 
       // Output wires (write-only)
       .execute_immediate_w(execute_immediate),
@@ -157,73 +153,54 @@ module pipe #(
   );
 
 
-  ////////////////////////////////////////////////////////////
-  // TODO: Register File Forwarding
-  //
-  // - If src register is x0 (5'd0) → return 0
-  // - If WB stage writes same register (and not stalled) → forward:
-  //    	wb_read_data (for LOAD)
-  //    	wb_result	(for ALU)
-  // - Else → read from register array (regs)
-  ////////////////////////////////////////////////////////////
+  // Register File Forwarding:
+  // - If source register is x0, return 0
+  // - If WB stage writes to same register, forward:
+  //   + wb_read_data (for LOAD)
+  //   + wb_result	  (for ALU)
+  // - Else -> read from register array (regs)
 
   assign reg_rdata1 = (src1_select == 5'd0) ? 32'b0 :  // FIXED: Return 0
       (!wb_stall && wb_alu_to_reg && (wb_dest_reg_sel == src1_select))
     	? (wb_mem_to_reg ? wb_read_data : wb_result)
-    	: regs[src1_select]; // FIXED: Read from array
+    	: regs[src1_select];
 
-  // FIXED: Implemented rdata2 logic identical to rdata1
   assign reg_rdata2 =
       (src2_select == 5'd0) ? 32'b0 :
 	(!wb_stall && wb_alu_to_reg && (wb_dest_reg_sel == src2_select))
     	? (wb_mem_to_reg ? wb_read_data : wb_result)
     	: regs[src2_select];
 
-  ////////////////////////////////////////////////////////////
-  // TODO: Register File Writeback
-  //
-  // On reset:
-  //   - Clear registers x1-x31
-  //
-  // On valid WB cycle:
-  //   - If wb_alu_to_reg asserted
-  //   - AND no stall
-  //   - Write either:
-  //    	wb_read_data (LOAD)
-  //    	wb_result	(ALU result)
-  ////////////////////////////////////////////////////////////
+
+  // Register File Writeback:
+  // - On reset, clear registers x1-x31
+  // - On valid WB cycle, write either:
+  //   + wb_read_data (for LOAD)
+  //   + wb_result    (for ALU)
 
   integer i;
   always @(posedge clk or negedge reset) begin
     if (!reset) begin
-      for (i = 1; i < 32; i = i + 1) regs[i] <= 32'b0;  // FIXED: Zero out registers on reset
-    end  // ADDED: && wb_dest_reg_sel != 5'd0 -> Register x0
-    else if (wb_alu_to_reg && !stall_read && !wb_stall && wb_dest_reg_sel != 5'd0) begin
-      regs[wb_dest_reg_sel] <=
-        	wb_mem_to_reg ? wb_read_data : wb_result; // FIXED: Wrote result from WB stage
+      for (i = 1; i < 32; i = i + 1) regs[i] <= 32'b0;
+    end else if (wb_alu_to_reg && !stall_read && !wb_stall && wb_dest_reg_sel != 5'd0) begin
+      regs[wb_dest_reg_sel] <= wb_mem_to_reg ? wb_read_data : wb_result;
     end
   end
 
 
-  ////////////////////////////////////////////////////////////
-  // Stall register
-  ////////////////////////////////////////////////////////////
-
+  // Stall Register
   always @(posedge clk or negedge reset) begin
     if (!reset) stall_read <= 1'b1;
     else stall_read <= stall;
   end
 
 
-  // -- Instantiating EX module -- //
+  // Instantiating EX module
   execute execute (
       .clk  (clk),
       .reset(reset),
 
-      // -----------------
-      // FROM ID/EX
-      // -----------------
-      // ---- TODO: Connect ID/EX signals ----
+      // From ID -> EX Register
       .reg_rdata1   (reg_rdata1),
       .reg_rdata2   (reg_rdata2),
       .execute_imm  (execute_immediate),
@@ -243,15 +220,11 @@ module pipe #(
       .alu_op       (alu_operation),
       .dmem_raddr   (dmem_read_offset),
 
-      // -----------------
-      // FROM WB
-      // -----------------
+      // From WB Stage
       .wb_branch_i(wb_branch),
       .wb_branch_nxt_i(wb_branch_nxt),
 
-      // -----------------
-      // EX → PIPE
-      // -----------------
+      // EX -> PIPE
       .alu_operand1 (alu_operand1),
       .alu_operand2 (alu_operand2),
       .write_address(write_address),
@@ -259,10 +232,7 @@ module pipe #(
       .next_pc      (next_pc),
       .branch_taken (branch_taken),
 
-      // -----------------
-      // EX → WB
-      // -----------------
-      // ---- TODO: Connect EX → WB signals ----
+      // EX -> WB
       .wb_result        (wb_result),
       .wb_mem_write     (wb_mem_write),
       .wb_alu_to_reg    (wb_alu_to_reg),
@@ -275,21 +245,12 @@ module pipe #(
   );
 
 
-
-  ////////////////////////////////////////////////////////////
-  // PC Update Logic
-  //
-  // On reset:
-  // - Set PC = RESET
-  //
-  // On each clock (if not stalled):
-  // - If branch_stall = 1 → hold branch redirect and
-  // move sequentially (PC = PC + 4).
-  // - Else → update PC with next_pc
-  // (this could be normal next or a jump/branch address).
-  //
-  // stall_read prevents any PC update.
-  ////////////////////////////////////////////////////////////
+  // PC Update Logic:
+  // - On reset, set PC = RESET
+  // - On each clock cycle (if not stalled):
+  //   + If branch_stall = 1, hold branch redirect and move sequentially.
+  //   + Else, update PC with next_pc (this could be normal next or a jump/branch address).
+  // - stall_read prevents any PC update
 
   always @(posedge clk or negedge reset) begin
     if (!reset) fetch_pc <= RESET;
@@ -297,14 +258,12 @@ module pipe #(
   end
 
 
-  // -- Instantiating WB module -- //
+  // Instantiating WB module
   wb wb_stage (
       .clk  (clk),
       .reset(reset),
 
-      // -----------------
-      // TODO: Connect WB inputs
-      // -----------------
+      // Inputs
       .stall_read_i      (stall_read),
       .fetch_pc_i        (fetch_pc),
       .wb_branch_i       (wb_branch),
@@ -318,9 +277,7 @@ module pipe #(
       .dmem_read_data_i  (dmem_read_data),
       .dmem_write_valid_i(dmem_write_valid),
 
-      // -----------------
-      // TODO: Connect WB outputs
-      // -----------------
+      // Outputs
       .inst_mem_address_o (inst_mem_address),
       .inst_mem_is_ready_o(inst_mem_is_ready),
       .wb_stall_o         (wb_stall),

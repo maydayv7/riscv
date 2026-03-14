@@ -8,16 +8,12 @@ module IF_ID #(
     input      stall,
     output reg exception,
 
-    // IMEM interface
-    input        inst_mem_is_valid,
-    input [31:0] inst_mem_read_data,
-
-    // ----------------------------- // Signals previously read from pipe  // -----------------------------
+    // Signals previously read from pipe
     input        stall_read_i,
     input [31:0] inst_fetch_pc,
     input [31:0] instruction_i,
 
-    // -----------------------------    // WB-stage signals (passed in)    // -----------------------------
+    // WB Stage signals
     input        wb_stall,
     input        wb_alu_to_reg,
     input        wb_mem_to_reg,
@@ -25,7 +21,11 @@ module IF_ID #(
     input [31:0] wb_result,
     input [31:0] wb_read_data,
 
-    // -----------------------------    // Instruction memory address info    // -----------------------------
+    // IMEM interface
+    input        inst_mem_is_valid,
+    input [31:0] inst_mem_read_data,
+
+    // IMEM address info
     input  [ 1:0] inst_mem_offset,
     output [31:0] execute_immediate_w,
     output        immediate_sel_w,
@@ -46,31 +46,24 @@ module IF_ID #(
     output [31:0] instruction_o
 );
 
-  //////////////// Including OPCODES ////////////////////////////
   `include "opcode.vh"
 
-  //////////////////////////////// LOCAL INTERNAL SIGNALS////////////////////////////////////////////////////////////
-
+  // Local internal signals
   reg [31:0] immediate;
   reg        illegal_inst;
 
-  ////////////////////////////////////////////////////////////// IF stage////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////
+  // Instruction Fetch (IF) Stage
+  ////////////////////////////////////////////////////////////
 
-
-  // TODO-1:
-  // Implement IF-stage instruction selection.
-  // - On stall_read_i = 1, insert a NOP
+  // Instruction Selection:
+  // - On stall, insert a NOP
   // - Otherwise, pass instruction/data from instruction memory
+  assign instruction_o = stall_read_i ? NOP : inst_mem_read_data;
 
-  //assign instruction_o = stall_read_i ? NOP : instruction_i;
-  assign instruction_o = stall_read_i ? NOP : inst_mem_read_data; // FIXED: Fetches the actual instruction from memory to prevent NOP loop
-
-  ////////////////////////////////////////////////////////////// Exception detection////////////////////////////////////////////////////////////
-
-  // TODO-2:
-  // Assert exception when:
-  // - illegal instruction is detected
-  // - instruction fetch is misaligned (inst_mem_offset != 2'b00)
+  // Exception Detection:
+  // - Illegal instruction is detected
+  // - Instruction fetch is misaligned
 
   always @(posedge clk or negedge reset) begin
     if (!reset) exception <= 1'b0;
@@ -78,58 +71,51 @@ module IF_ID #(
     else exception <= 1'b0;
   end
 
-  ////////////////////////////////////////////////////////////// ID stage: immediate generation ///////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////
+  // Instruction Decode (ID) Stage
+  ////////////////////////////////////////////////////////////
 
-  // Generate 32-bit immediates for:
-  // JAL, JALR, BRANCH, LOAD, STORE, ARITH-I, LUI
-  // For unsupported opcodes, set illegal_inst = 1
-  //
-  // Definitions:
-  // - instruction_i[31] is the sign bit
-  // - "Sign-extend" means: replicate instruction_i[31] to fill all unused MSBs
-  // - The number of replicated bits is implied by the immediate bit ranges below
-  // - All immediates must be exactly 32 bits wide
-
+  // Immediate Generation
   always @(*) begin
     immediate    = 32'h0;
     illegal_inst = 1'b0;
 
     case (instruction_i[`OPCODE])
       // JALR:
-      // Lower 12 bits  = instruction_i[31:20]
-      // Upper 20 bits  = Sign-extend
+      // - Lower 12 bits = instruction_i[31:20]
+      // - Upper 20 bits = Sign-extend
       JALR: immediate = {{20{instruction_i[31]}}, instruction_i[31:20]};
 
       // BRANCH:
-      // immediate[12]   = instruction_i[31]   (sign bit)
-      // immediate[11]   = instruction_i[7]
-      // immediate[10:5] = instruction_i[30:25]
-      // immediate[4:1]  = instruction_i[11:8]
-      // immediate[0]	= 1'b0
-      // immediate[31:13]= Sign-extend
+      // - immediate[12]    = instruction_i[31] (Sign bit)
+      // - immediate[11]    = instruction_i[7]
+      // - immediate[10:5]  = instruction_i[30:25]
+      // - immediate[4:1]   = instruction_i[11:8]
+      // - immediate[0]	    = 1'b0
+      // - immediate[31:13] = Sign-extend
       BRANCH:
       immediate = {
         {20{instruction_i[31]}}, instruction_i[7], instruction_i[30:25], instruction_i[11:8], 1'b0
       };
 
       // LOAD:
-      // Lower 12 bits  = instruction_i[31:20]
-      // Upper 20 bits  = Sign-extend
+      // - Lower 12 bits = instruction_i[31:20]
+      // - Upper 20 bits = Sign-extend
       LOAD: immediate = {{20{instruction_i[31]}}, instruction_i[31:20]};
 
       // STORE:
-      // Lower 5 bits   = instruction_i[11:7]
-      // Next 7 bits	= instruction_i[31:25]
-      // Upper 20 bits  = Sign-extend
+      // - Lower 5 bits  = instruction_i[11:7]
+      // - Next 7 bits	 = instruction_i[31:25]
+      // - Upper 20 bits = Sign-extend
       STORE: immediate = {{20{instruction_i[31]}}, instruction_i[31:25], instruction_i[11:7]};
 
       // ARITH-I:
-      // If FUNC3 is SLL or SR:
-      //   immediate[4:0]  = instruction_i[24:20]
-      //   immediate[31:5] = 0
-      // Else:
-      //   Lower 12 bits  = instruction_i[31:20]
-      //   Upper 20 bits  = Sign-extend
+      // - If FUNC3 is SLL or SR -
+      //   + immediate[4:0]  = instruction_i[24:20]
+      //   + immediate[31:5] = 0
+      // - Else:
+      //   + Lower 12 bits = instruction_i[31:20]
+      //   + Upper 20 bits = Sign-extend
       ARITHI:
       immediate =
                  (instruction_i[`FUNC3] == SLL ||
@@ -137,22 +123,21 @@ module IF_ID #(
                  ? {27'b0, instruction_i[24:20]}
                  : {{20{instruction_i[31]}}, instruction_i[31:20]};
 
-      // ARITH-R:
-      // No immediate
+      // ARITH-R: No immediate
       ARITHR: immediate = 32'h0;
 
       // LUI:
-      // Upper 20 bits = instruction_i[31:12]
-      // Lower 12 bits = 0
+      // - Upper 20 bits = instruction_i[31:12]
+      // - Lower 12 bits = 0
       LUI: immediate = {instruction_i[31:12], 12'b0};
 
       // JAL:
-      // immediate[20]	= instruction_i[31]   (sign bit)
-      // immediate[19:12] = instruction_i[19:12]
-      // immediate[11]	= instruction_i[20]
-      // immediate[10:1]  = instruction_i[30:21]
-      // immediate[0] 	= 1'b0
-      // immediate[31:21] = Sign-extend
+      // - immediate[20]  	= instruction_i[31] (Sign bit)
+      // - immediate[19:12] = instruction_i[19:12]
+      // - immediate[11]  	= instruction_i[20]
+      // - immediate[10:1]  = instruction_i[30:21]
+      // - immediate[0] 	  = 1'b0
+      // - immediate[31:21] = Sign-extend
       JAL:
       immediate = {
         {12{instruction_i[31]}}, instruction_i[19:12], instruction_i[20], instruction_i[30:21], 1'b0
@@ -162,11 +147,9 @@ module IF_ID #(
     endcase
   end
 
-  ////////////////////////////////////////////////////////////// ID -> EX Register////////////////////////////////////////////////////////////
-
-  // TODO-4:
-  // Generate control signals based on opcode
-  // alu, lui, jal, jalr, branch, mem_write, mem_to_reg, arithsubtype
+  ////////////////////////////////////////////////////////////
+  // ID -> EX Register
+  ////////////////////////////////////////////////////////////
 
   id_ex_reg u_id_ex (
       .clk    (clk),
@@ -198,7 +181,7 @@ module IF_ID #(
       .alu_op_i(instruction_i[`FUNC3]),
       .illegal_inst_i(illegal_inst),
 
-      // To EX (WIRES)
+      // To EX (Wires)
       .execute_immediate_o(execute_immediate_w),
       .immediate_sel_o    (immediate_sel_w),
       .alu_o              (alu_w),
@@ -217,9 +200,6 @@ module IF_ID #(
       .illegal_inst_o     (illegal_inst_w)
   );
 endmodule
-
-
-////////////////////////////////////////////////////////////// ID -> EX register module////////////////////////////////////////////////////////////
 
 module id_ex_reg (
     input clk,

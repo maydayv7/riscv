@@ -1,6 +1,9 @@
 `timescale 1ns/1ps
 
-////////////////////////////////////////////////////////////// Stage 2: Execute////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////
+// Execute (EX) Stage
+////////////////////////////////////////////////////////////
+
 module execute
 #(
 	parameter [31:0] RESET = 32'h0000_0000
@@ -9,7 +12,7 @@ module execute
 	input clk,
 	input reset,
 
-	// -----------------------------	// FROM ID/EX	// -----------------------------
+	// From ID -> EX Register
 	input  [31:0] reg_rdata1,
 	input  [31:0] reg_rdata2,
 	input  [31:0] execute_imm,
@@ -30,11 +33,11 @@ module execute
 	input  [2:0]  alu_op,
 	input  [1:0]  dmem_raddr,
 
-	// -----------------------------	// FROM WB	// -----------------------------
+	// From WB Stage
 	input     	wb_branch_i,
 	input     	wb_branch_nxt_i,
 
-	// -----------------------------	// EX → PIPE	// -----------------------------
+	// EX -> Pipe
 	output [31:0] alu_operand1,
 	output [31:0] alu_operand2,
 	output [31:0] write_address,
@@ -43,7 +46,7 @@ module execute
 	output reg [31:0] next_pc,
 	output reg    	branch_taken,
 
-	// -----------------------------  // EX → WB	// -----------------------------
+	// EX -> WB
 	output [31:0] wb_result,
 	output    	wb_mem_write,
 	output    	wb_alu_to_reg,
@@ -55,31 +58,22 @@ module execute
 	output [2:0]  mem_alu_operation
 );
 
-//////////////// Including OPCODES ////////////////////////////
 `include "opcode.vh"
 
-////////////////////////////////////////////////////////////// LOCAL INTERNAL SIGNALS/////////////////////////////////
-
+// Local internal signals
 reg  [31:0] ex_result;
 wire [32:0] ex_result_subs;
 wire [32:0] ex_result_subu;
 
-////////////////////////////////////////////////////////////// Operand selection///////////////////////////////////////////////////////
-
-// TODO-EX-1:
-// Select ALU operands
-// - The first operand must come from the first value read from the register file
-// - The second operand must come from the immediate when immediate selection is enabled
-// - Otherwise, the second operand must come from the second value read from the register file
+// Select ALU operands:
+// - The 1st operand must come from the first value read from the register file
+// - The 2nd operand must come from the immediate when immediate selection is enabled
+// - Otherwise, the 2nd operand must come from the second value read from the register file
 
 assign alu_operand1 = reg_rdata1;
 assign alu_operand2 = immediate_sel ? execute_imm : reg_rdata2;
 
-////////////////////////////////////////////////////////////// Subtractions////////////////////////////////////////////////////////////
-
-
-// TODO-EX-2:
-// Generate subtraction results required for branch comparison
+// Generate subtraction results required for branch comparison:
 // - One result (ex_result_subs) must treat both operands as signed values
 // - Another result (ex_result_subu) must treat both operands as unsigned values
 // - The results must be wide enough to capture the sign/borrow bit
@@ -91,25 +85,21 @@ assign ex_result_subs =
 
 assign ex_result_subu = {1'b0, alu_operand1} - {1'b0, alu_operand2};
 
-////////////////////////////////////////////////////////////// Address & branch stall////////////////////////////////////////
 
+// Address and Branch Stall
 assign write_address = alu_operand1 + execute_imm;
 assign branch_stall  = wb_branch_nxt_i || wb_branch_i;
 
-////////////////////////////////////////////////////////////// Next PC logic////////////////////////////////////////////////////////////
 
-
-// TODO-EX-3:
-// Compute the next program counter and branch decision
-// Guidelines:
-// - Default next PC advances to the next sequential instruction
+// Next Program Counter (PC) Logic and Branch Decision:
+// - By default, advance to the next sequential instruction
 // - For jump instructions:
-// 	* JAL computes the target using the current PC and an immediate
-// 	* JALR computes the target using a register value (first read) and an immediate
+// 	+ JAL computes the target using the current PC and an immediate
+// 	+ JALR computes the target using a register value (first read) and an immediate
 // - For branch instructions:
-// 	* Evaluate the branch condition using comparison/subtraction results
-// 	* If the condition is satisfied, jump to the branch target
-// 	* Otherwise, continue sequential execution
+// 	+ Evaluate the branch condition using comparison/subtraction results
+// 	+ If the condition is satisfied, jump to the branch target
+// 	+ Otherwise, continue sequential execution
 // - Branch resolution must be suppressed when a branch stall is active
 
 always @(*) begin
@@ -118,7 +108,7 @@ always @(*) begin
 
 	case (1'b1)
     	jal  : next_pc = pc + execute_imm;
-    	jalr : next_pc = alu_operand1 + execute_imm; // reg_rdata1 = alu_operand
+    	jalr : next_pc = alu_operand1 + execute_imm;
 
     	branch: begin
         	case (alu_op)
@@ -130,7 +120,6 @@ always @(*) begin
                     	branch_taken = 1'b0;
             	end
             	BNE:  begin
-                	// TODO-EX3
                 	next_pc = (ex_result_subs != 0) ? pc + execute_imm : fetch_pc + 4;
                 	if(ex_result_subs == 0) 
                 	   branch_taken = 1'b0;
@@ -143,7 +132,6 @@ always @(*) begin
                     	branch_taken = 1'b0;
             	end
             	BGE:  begin
-                	// TODO-EX-3
                 	next_pc = (!ex_result_subs[32]) ? pc+execute_imm : fetch_pc + 4;
                 	if(ex_result_subs[32])
                 	    branch_taken = 1'b0;
@@ -156,12 +144,11 @@ always @(*) begin
                     	branch_taken = 1'b0;
             	end
             	BGEU: begin
-                	// TODO-EX-3
                 	next_pc = (!ex_result_subu[32]) ? pc+execute_imm : fetch_pc+4;
                 	if(ex_result_subu[32])
                 	    branch_taken = 1'b0;
             	end
-            	default: next_pc = fetch_pc; // sequential execution
+            	default: next_pc = fetch_pc; // Sequential Execution
         	endcase
     	end
 
@@ -172,17 +159,12 @@ always @(*) begin
 	endcase
 end
 
-////////////////////////////////////////////////////////////// ALU result logic////////////////////////////////////////////////////////////
-
-// TODO-EX-4:
-// Generate the execute-stage result (ex_result)
-// Guidelines:
+// Execution Result Logic:
 // - For store instructions, forward the value that will be written to memory
-// - For jump instructions (JAL/JALR), produce the return address (PC + 4)
+// - For jump instructions, produce the return address
 // - LUI must place the immediate value directly into the destination register
 // - For ALU instructions, compute the result based on the decoded ALU operation
 // - The arithmetic subtype signal selects between related operations
-
 
 always @(*) begin
 	case (1'b1)
@@ -197,16 +179,16 @@ always @(*) begin
                   	arithsubtype
                   	? alu_operand1 - alu_operand2
                   	: alu_operand1 + alu_operand2;
-            	SLL : ex_result = alu_operand1 << alu_operand2[4:0]; // TODO-EX-4: Perform logical left shift
+            	SLL : ex_result = alu_operand1 << alu_operand2[4:0];
             	SLT : ex_result = ex_result_subs[32];
-            	SLTU: ex_result = ex_result_subu[32]; // TODO-EX-4: Perform unsigned comparison
-            	XOR : ex_result = alu_operand1 ^ alu_operand2; // TODO-EX-4: Perform bitwise XOR
+            	SLTU: ex_result = ex_result_subu[32];
+            	XOR : ex_result = alu_operand1 ^ alu_operand2;
             	SR  : ex_result =
                   	arithsubtype
                   	? $signed(alu_operand1) >>> alu_operand2[4:0]
-                  	: alu_operand1 >>> alu_operand2[4:0]; // BUG: max 31 bits shift is allowed [4:0]
-            	OR  : ex_result = alu_operand1 | alu_operand2; // TODO-EX-4: Perform bitwise OR
-            	AND : ex_result = alu_operand1 & alu_operand2; // TODO-EX-4: Perform bitwise AND
+                  	: alu_operand1 >>> alu_operand2[4:0];
+            	OR  : ex_result = alu_operand1 | alu_operand2;
+            	AND : ex_result = alu_operand1 & alu_operand2;
             	default: ex_result = 'hx;
         	endcase
     	end
@@ -215,8 +197,9 @@ always @(*) begin
 	endcase
 end
 
-
-////////////////////////////////////////////////////////////// EX → WB pipeline register/////////////////////////////////////////
+////////////////////////////////////////////////////////////
+// EX -> WB Register
+////////////////////////////////////////////////////////////
 
 ex_mem_wb_reg u_ex_mem_wb (
 	.clk        	(clk),
@@ -277,14 +260,6 @@ module ex_mem_wb_reg (
 	output reg [2:0]  ex_mem_alu_operation
 );
 
-// TODO-EX-5:
-// EX/MEM → WB pipeline register
-// Guidelines:
-// - Store all execute-stage data and control signals on the rising clock edge
-// - On reset, clear all stored values to a safe default
-// - When a stall is asserted, prevent unintended updates
-// - All outputs must hold their previous values unless explicitly updated
-
 always @(posedge clk or negedge reset_n) begin
 	if (!reset_n) begin
     	ex_mem_result     	<= 32'h0;
@@ -298,15 +273,15 @@ always @(posedge clk or negedge reset_n) begin
     	ex_mem_alu_operation  <= 3'h0;
 	end
 	else if (!stall_n) begin
-    	ex_mem_result     	<= ex_result; // TODO-EX-5
-    	ex_mem_mem_write  	<= mem_write; // TODO-EX-5
-    	ex_mem_alu_to_reg 	<= alu_to_reg; // TODO-EX-5
-    	ex_mem_dest_reg_sel   <= dest_reg_sel; // TODO-EX-5
+    	ex_mem_result     	<= ex_result;
+    	ex_mem_mem_write  	<= mem_write;
+    	ex_mem_alu_to_reg 	<= alu_to_reg;
+    	ex_mem_dest_reg_sel   <= dest_reg_sel;
     	ex_mem_branch     	<= branch_taken;
-    	ex_mem_branch_nxt 	<= ex_mem_branch;   
-    	ex_mem_mem_to_reg 	<= mem_to_reg; // TODO-EX-5
-    	ex_mem_read_address   <= read_address; // TODO-EX-5
-    	ex_mem_alu_operation  <= alu_operation; // TODO-EX-5
+    	ex_mem_branch_nxt 	<= ex_mem_branch;
+    	ex_mem_mem_to_reg 	<= mem_to_reg;
+    	ex_mem_read_address   <= read_address;
+    	ex_mem_alu_operation  <= alu_operation;
 	end
 end
 

@@ -6,7 +6,7 @@ create_clock -period 10.000 [get_ports clk]
 ################ RESET ################
 set_property PACKAGE_PIN N17 [get_ports reset]
 set_property IOSTANDARD LVCMOS33 [get_ports reset]
-set_property PULLUP true [get_ports reset]
+#set_property PULLUP true [get_ports reset]
 
 ################ LEDS #################
 set_property PACKAGE_PIN H17 [get_ports {led[0]}]
