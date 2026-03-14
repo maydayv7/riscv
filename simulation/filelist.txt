@@ -1,0 +1,4 @@
+
+../modules/testbench.v
+../modules/pipeline.v
+../modules/memory.v

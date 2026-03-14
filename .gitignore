@@ -1,0 +1,16 @@
+*.log
+xpacks
+
+# mem_generator
+*.elf
+*.bin
+*.hex
+*.dis
+
+# simulation
+xsim.dir/
+*.pb
+*.jou
+*.wdb
+stdout
+dfx_runtime.txt
