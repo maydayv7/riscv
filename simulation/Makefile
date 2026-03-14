@@ -27,10 +27,9 @@ help:
 	copy /Y ..\mem_generator\imem_dmem\*.hex .
 	$(XVLOG) $(BFLAGS)
 	$(XELAB) -top $(TOP_MOD) -snapshot $(SNAPSHOT) -debug typical
-	$(XSIM) $(SNAPSHOT) -runall -log stdout
+	$(XSIM) $(SNAPSHOT) -tclbatch simulate.tcl -log simulation.log
 
 
 clean:
 	-rmdir /S /Q xsim.dir
-	-del /Q /F *.log *.pb *.jou *.hex
-	-del /Q /F riscv_sim.wdb stdout dfx_runtime.txt
+	-del /Q /F *.log *.pb *.jou *.hex *.wdb *.vcd dfx_runtime.txt

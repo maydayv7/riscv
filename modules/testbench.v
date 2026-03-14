@@ -96,6 +96,8 @@ module testbench;
 
   // Simulation
   initial begin
+    $dumpfile("pipeline.vcd");
+    $dumpvars(0, testbench);
     #20000;  // Run long enough to see program execute
     $finish;
   end

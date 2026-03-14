@@ -12,5 +12,5 @@ xsim.dir/
 *.pb
 *.jou
 *.wdb
-stdout
+*.vcd
 dfx_runtime.txt
