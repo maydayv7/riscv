@@ -5,16 +5,13 @@ OBJDUMP = riscv-none-elf-objdump
 OBJCOPY = riscv-none-elf-objcopy
 READELF = riscv-none-elf-readelf
 
-
 # Flags for RV32i architecture
 CFLAGS  = -march=rv32i -mabi=ilp32
 
 
 # Sources
-SRC_ADDITION = code_addition.c
-SRC_SORT     = code_sort.c
-SRC_NEGATIVE = code_negative.c
-
+SRCS = $(wildcard code_*.c)
+PROGS = $(patsubst code_%.c,%,$(SRCS))
 TARGET = code.elf
 
 

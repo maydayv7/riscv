@@ -32,4 +32,4 @@ help:
 
 clean:
 	-rmdir /S /Q xsim.dir
-	-del /Q /F *.log *.pb *.jou *.hex *.wdb *.vcd dfx_runtime.txt
+	-del /Q /F *.log *.pb *.jou *.hex *.wdb *.vcd

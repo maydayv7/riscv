@@ -40,3 +40,39 @@ Contains the environment to run the Verilog simulation using Vivado's `xsim`.
 ### Running Simulations
 
 You can run the simulation tests using the xPack actions (`xpm run <action>`) defined in `package.json`.
+
+Available simulation targets:
+
+- `xpm run sim-addition`
+- `xpm run sim-sort`
+- `xpm run sim-negative`
+- `xpm run sim-fibonacci`
+- `xpm run sim-xor`
+
+After simulation, you can find the generated waveform file `pipeline.vcd` inside the `simulation/` directory.
+
+### Building Memory Files
+
+If you just want to compile the C programs into `.hex` files without running the Vivado simulator, you can use the build actions:
+
+- `xpm run build-addition`
+- `xpm run build-sort`
+- `xpm run build-negative`
+- `xpm run build-fibonacci`
+- `xpm run build-xor`
+
+This will generate `imem.hex` and `dmem.hex` in the `mem_generator/imem_dmem/` directory.
+
+### FPGA Synthesis and Implementation
+
+The project includes scripts to synthesize and implement the processor for the **Nexys A7 (xc7a100tcsg324-1)**.
+
+1. First, compile the C program you want to run on the FPGA (Eg. `xpm run build-addition`)
+2. Run the synthesis and implementation pipeline using `xpm run synth`
+
+### Programming the FPGA
+
+Once the bitstream (`fpga.bit`) is generated, you can program the connected Nexys A7 board directly:
+
+1. Ensure the board is connected via USB and turned ON
+2. Run `xpm run program`

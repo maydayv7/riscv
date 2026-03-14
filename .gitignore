@@ -14,3 +14,9 @@ xsim.dir/
 *.wdb
 *.vcd
 dfx_runtime.txt
+
+# Vivado
+.Xil/
+*.bit
+*.rpt
+clockInfo.txt
