@@ -24,6 +24,7 @@ help:
 %:
 	$(MAKE) clean -C $(MEM_GEN)
 	$(MAKE) $@ -C $(MEM_GEN)
+	copy /Y ..\mem_generator\imem_dmem\*.hex .
 	$(XVLOG) $(BFLAGS)
 	$(XELAB) -top $(TOP_MOD) -snapshot $(SNAPSHOT) -debug typical
 	$(XSIM) $(SNAPSHOT) -runall -log stdout
@@ -31,5 +32,5 @@ help:
 
 clean:
 	-rmdir /S /Q xsim.dir
-	-del /Q /F xvlog.log xvlog.pb xelab.log xelab.pb xsim.log xsim.jou xsim.pb
+	-del /Q /F *.log *.pb *.jou *.hex
 	-del /Q /F riscv_sim.wdb stdout dfx_runtime.txt
