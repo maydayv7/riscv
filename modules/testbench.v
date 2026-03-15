@@ -102,4 +102,10 @@ module testbench;
     $finish;
   end
 
+  always @(posedge clk) begin
+    if (reset) begin
+        $display("time: %0t , result = %0d , next_pc = %h", $time, DUT.wb_result, pc_out);
+    end
+  end
+
 endmodule
