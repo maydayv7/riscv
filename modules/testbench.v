@@ -102,9 +102,59 @@ module testbench;
     $finish;
   end
 
+  // Track clock cycles and mute switch
+  integer cycle = 0;
+
   always @(posedge clk) begin
-    if (reset) begin
-        $display("time: %0t , result = %0d , next_pc = %h", $time, DUT.wb_result, pc_out);
+    if (reset) cycle <= cycle + 1;
+  end
+
+  // Print comprehensive pipeline status on negative edge
+  always @(negedge clk) begin
+    if (reset) begin 
+      // 1. Timing Info
+      $write("Time: %6t | Cyc: %3d | ", $time, cycle);
+
+      // 2. Stage 1: IF/ID
+      $write("IF: fetch_pc=%h Inst=%h | ", DUT.fetch_pc, DUT.instruction);
+
+      // 3. Stage 2: EX
+      $write("EX: PC=%h next_pc=%h ", DUT.execute.pc, DUT.next_pc);
+      
+      // Flag if a branch is actively taken this cycle
+      if (DUT.branch_taken) begin
+        $write("[TAKEN] "); 
+      end else begin
+        $write("        "); 
+      end
+      $write("| ");
+
+      // 4. Stage 3: WB 
+      $write("WB: ");
+      if (DUT.wb_alu_to_reg && DUT.wb_dest_reg_sel != 0) begin
+        $write("Reg[x%0d]=%0d ", DUT.wb_dest_reg_sel, $signed(DUT.wb_result));
+      end else begin
+        $write("             "); 
+      end
+
+      if (DUT.wb_mem_write) begin
+        $write("Mem[%h]=%0d ", DUT.dmem_write_address, $signed(DUT.dmem_write_data));
+      end
+
+      // 5. Pipeline Status
+      if (DUT.stall_read) begin
+        $write(" *[STALL]*");
+      end
+
+      $display(""); 
+    end
+  end
+
+  // Finish condition
+  always @(posedge clk) begin
+    if (inst_mem_read_data == 32'h00008067) begin // ret instruction
+      #20; // Hardware finish
+      $finish;
     end
   end
 
