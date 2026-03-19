@@ -15,24 +15,7 @@
       }
     },
     "properties": {},
-    "actions": {
-      "sim-addition": "mingw32-make -C simulation addition",
-      "sim-sort": "mingw32-make -C simulation sort",
-      "sim-negative": "mingw32-make -C simulation negative",
-      "sim-fibonacci": "mingw32-make -C simulation fibonacci",
-      "sim-xor": "mingw32-make -C simulation xor",
-
-      "build-addition": "mingw32-make -C mem_generator addition",
-      "build-sort": "mingw32-make -C mem_generator sort",
-      "build-negative": "mingw32-make -C mem_generator negative",
-      "build-fibonacci": "mingw32-make -C mem_generator fibonacci",
-      "build-xor": "mingw32-make -C mem_generator xor",
-
-      "synth": "copy mem_generator\\imem_dmem\\*.hex . && vivado -mode batch -source synth.tcl",
-      "program": "vivado -mode batch -source program.tcl",
-
-      "clean": "mingw32-make -C mem_generator clean && mingw32-make -C simulation clean && del *.hex"
-    },
+    "actions": {},
     "buildConfigurations": {}
   }
 }

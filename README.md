@@ -16,7 +16,7 @@ Contains the Verilog source code for the RISC-V processor.
 - **`testbench.v`**: The simulation testbench for verifying the processor
 - **`fpga/`**: Contains the Vivado constraints (`.xdc`) and the top-level FPGA wrapper (`fpga.v`) for deployment to a Nexys A7 board
 
-### `mem_generator/`
+### `firmware/`
 
 Provides the toolchain to write C code and convert it into memory initialization files for the Verilog simulator.
 
@@ -24,55 +24,48 @@ Provides the toolchain to write C code and convert it into memory initialization
 
 Contains the environment to run the Verilog simulation using Vivado's `xsim`.
 
+### `fpga/`
+
+Includes scripts to synthesize and implement the processor for the **Nexys A7 (xc7a100tcsg324-1)**.
+
 ## How to Run
 
 ### Prerequisites
 
 - NodeJS and [xPack](https://xpack.github.io/)
-- [`make`](https://www.gnu.org/software/make/)
 - Python 3
-- [Vivado](https://www.amd.com/en/products/software/adaptive-socs-and-fpgas/vivado.html) tools in PATH
+- [Vivado](https://www.amd.com/en/products/software/adaptive-socs-and-fpgas/vivado.html) tools
 
-> [!NOTE]
-> This project has been tested exclusively on Windows 11 using [MSYS2](https://www.msys2.org/) UCRT `make` and Vivado 2025.2  
-> Compatibility with other operating systems or tool versions is not guaranteed
+### Initial Setup
 
-### Running Simulations
-
-You can run the simulation tests using the xPack actions (`xpm run <action>`) defined in `package.json`.
-
-Available simulation targets:
-
-- `xpm run sim-addition`
-- `xpm run sim-sort`
-- `xpm run sim-negative`
-- `xpm run sim-fibonacci`
-- `xpm run sim-xor`
-
-After simulation, you can find the generated waveform file `pipeline.vcd` inside the `simulation/` directory.
+1. **Install Toolchain**:
+   ```bash
+   xpm install
+   ```
+2. **Configure Vivado Path**:
+   Create a `.env` file in the root directory and set `VIVADO_BIN_DIR` to your Vivado binary directory (where `vivado.bat` or `vivado` is located). For example:
+   `VIVADO_BIN_DIR=C:\AMDDesignTools\2025.2\Vivado\bin`
 
 ### Building Memory Files
 
-If you just want to compile the C programs into `.hex` files without running the Vivado simulator, you can use the build actions:
+To compile the C programs into `.hex` files, use `python run.py build <program>`.
 
-- `xpm run build-addition`
-- `xpm run build-sort`
-- `xpm run build-negative`
-- `xpm run build-fibonacci`
-- `xpm run build-xor`
+This will generate `imem.hex` and `dmem.hex` in the `firmware/imem_dmem/` directory.
 
-This will generate `imem.hex` and `dmem.hex` in the `mem_generator/imem_dmem/` directory.
+### Running Simulations
+
+After running the build action, use `python run.py sim` to run the simulation.
+
+Once finished, you can find the generated waveform file `pipeline.vcd` inside the `simulation/` directory.
 
 ### FPGA Synthesis and Implementation
 
-The project includes scripts to synthesize and implement the processor for the **Nexys A7 (xc7a100tcsg324-1)**.
-
-1. First, compile the C program you want to run on the FPGA (Eg. `xpm run build-addition`)
-2. Run the synthesis and implementation pipeline using `xpm run synth`
+1. First, compile the C program you want to run on the FPGA (Eg. `python run.py build addition`)
+2. Run the synthesis and implementation pipeline using `python run.py synth`
 
 ### Programming the FPGA
 
-Once the bitstream (`fpga.bit`) is generated, you can program the connected Nexys A7 board directly:
+Once the bitstream (`fpga/build/fpga.bit`) is generated, you can program the connected board directly:
 
 1. Ensure the board is connected via USB and turned ON
-2. Run `xpm run program`
+2. Run `python run.py program`

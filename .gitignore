@@ -1,5 +1,6 @@
-*.log
+.env
 xpacks
+*.log
 
 # mem_generator
 *.elf
@@ -16,7 +17,4 @@ xsim.dir/
 dfx_runtime.txt
 
 # Vivado
-.Xil/
-*.bit
-*.rpt
-clockInfo.txt
+fpga/build

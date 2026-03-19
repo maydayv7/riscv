@@ -1,9 +1,9 @@
 create_project -in_memory -part xc7a100tcsg324-1
-set_property include_dirs {modules} [current_fileset]
+set_property include_dirs {../../modules} [current_fileset]
 
-read_verilog modules/pipeline.v
-read_verilog modules/fpga/fpga.v
-read_xdc modules/fpga/constraints.xdc
+read_verilog ../../modules/pipeline.v
+read_verilog ../fpga.v
+read_xdc ../constraints.xdc
 
 # Run Synthesis
 synth_design -top fpga -part xc7a100tcsg324-1
