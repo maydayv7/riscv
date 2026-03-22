@@ -160,7 +160,7 @@ module pipe #(
   //   + wb_result	  (for ALU)
   // - Else -> read from register array (regs)
 
-  assign reg_rdata1 = (src1_select == 5'd0) ? 32'b0 :  // FIXED: Return 0
+  assign reg_rdata1 = (src1_select == 5'd0) ? 32'b0 :
       (!wb_stall && wb_alu_to_reg && (wb_dest_reg_sel == src1_select))
     	? (wb_mem_to_reg ? wb_read_data : wb_result)
     	: regs[src1_select];

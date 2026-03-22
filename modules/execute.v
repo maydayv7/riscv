@@ -132,7 +132,7 @@ always @(*) begin
                     	branch_taken = 1'b0;
             	end
             	BGE:  begin
-                	next_pc = (!ex_result_subs[32]) ? pc+execute_imm : fetch_pc + 4;
+                	next_pc = (!ex_result_subs[32]) ? pc + execute_imm : fetch_pc + 4;
                 	if(ex_result_subs[32])
                 	    branch_taken = 1'b0;
             	end
@@ -144,7 +144,7 @@ always @(*) begin
                     	branch_taken = 1'b0;
             	end
             	BGEU: begin
-                	next_pc = (!ex_result_subu[32]) ? pc+execute_imm : fetch_pc+4;
+                	next_pc = (!ex_result_subu[32]) ? pc + execute_imm : fetch_pc + 4;
                 	if(ex_result_subu[32])
                 	    branch_taken = 1'b0;
             	end

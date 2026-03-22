@@ -110,7 +110,7 @@ module IF_ID #(
       STORE: immediate = {{20{instruction_i[31]}}, instruction_i[31:25], instruction_i[11:7]};
 
       // ARITH-I:
-      // - If FUNC3 is SLL or SR -
+      // - If FUNC3 is SLL or SR:
       //   + immediate[4:0]  = instruction_i[24:20]
       //   + immediate[31:5] = 0
       // - Else:
